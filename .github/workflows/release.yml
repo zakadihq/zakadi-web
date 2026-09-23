@@ -1,0 +1,66 @@
+# Zakadi repository standard: release.yml for npm (stage and approve, D64).
+# On a v* tag CI stages each published package of the workspace through the trusted
+# publisher; a maintainer approves with 2FA (npm stage approve <stage-id>). The
+# @zakadi/* web packages share one version train (spec 06 6.1.1): a package joins the
+# matrix when it is first published.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      max-parallel: 1
+      matrix:
+        package: [packages/web-core]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Use an npm version that supports trusted publishing
+        run: npm install -g npm@latest && npm --version
+      - run: npm ci
+      - name: Build the workspace (the tarballs ship dist/)
+        run: npm run build
+      - name: Bundle budgets (spec 06 6.1.5)
+        run: npm run size
+      - name: Tarball contents
+        run: npm pack --dry-run
+        working-directory: ${{ matrix.package }}
+      - name: Stage the release (trusted publishing; approval with 2FA happens by hand)
+        run: npm stage publish --access public
+        working-directory: ${{ matrix.package }}
+      - name: Show the staged version
+        run: |
+          name=$(node -p "require('./package.json').name")
+          echo "## Staged: $name" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npm stage list "$name" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Approve with: npm stage approve <stage-id> (prompts for 2FA)" >> "$GITHUB_STEP_SUMMARY"
+        working-directory: ${{ matrix.package }}
