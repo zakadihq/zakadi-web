@@ -1,0 +1,40 @@
+{
+  "name": "zakadi-web",
+  "version": "1.0.0",
+  "description": "Web SDK for Zakadi: the npm workspace of the @zakadi/* web packages.",
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "format": "prettier --check .",
+    "lint": "eslint . && npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "size": "size-limit --config size-limit.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zakadihq/zakadi-web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/zakadihq/zakadi-web/issues"
+  },
+  "homepage": "https://github.com/zakadihq/zakadi-web#readme",
+  "workspaces": [
+    "packages/*"
+  ],
+  "private": true,
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@size-limit/file": "^14.0.0",
+    "@size-limit/rolldown": "^14.0.0",
+    "@types/dom-mediacapture-transform": "^0.1.12",
+    "eslint": "^10.11.0",
+    "lefthook": "^2.1.14",
+    "prettier": "^3.9.9",
+    "size-limit": "^14.0.0",
+    "typescript": "npm:@typescript/typescript6@~6.0.2",
+    "typescript-eslint": "^8.70.1"
+  }
+}
