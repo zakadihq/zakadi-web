@@ -1,0 +1,42 @@
+{
+  "name": "@zakadi/web-core",
+  "version": "0.0.0",
+  "description": "Zakadi web core: capture, encoding, transport and the control loop of the face-liveness call.",
+  "scripts": {
+    "test": "vitest run",
+    "build": "vite build && tsc6 --emitDeclarationOnly -p tsconfig.build.json",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zakadihq/zakadi-web.git",
+    "directory": "packages/web-core"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@zakadi/protocol": "0.1.0"
+  },
+  "devDependencies": {
+    "@typescript/typescript6": "^6.0.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}
