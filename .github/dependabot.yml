@@ -1,0 +1,19 @@
+# Zakadi repository standard: Dependabot. The npm entry at the root covers every
+# package of the workspace (one package-lock.json).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
