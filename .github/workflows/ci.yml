@@ -2,7 +2,10 @@
 # one package-lock.json at the root. The commands are the ones in lefthook.yml, through
 # the root scripts: format (prettier --check .), lint (eslint . and the TypeScript 7
 # check of every package), test (Vitest in every package), build and size (the gzip
-# budgets of spec 06 6.1.5), and test:integration once a package defines it.
+# budgets of spec 06 6.1.5), and test:integration once a package defines it. The lint
+# job ends with the scan (CI only, references/GITHUB.md): the licence of every
+# production dependency, from npm query across the workspaces, against the excluded
+# list of spec 00 0.10, then npm audit over the same dependencies.
 name: ci
 
 on:
@@ -39,6 +42,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: scan
+        shell: bash
+        env:
+          EXCLUDED_LICENCES: "(^|[^[:alnum:]])(A?GPL|SSPL|RSAL)|GNU (Affero )?General Public|Server Side Public|Redis Source Available|-NC([^[:alnum:]]|$)|[Nn]on[- ]?[Cc]ommercial|FoxIO"
+        run: |
+          npm query .prod | jq -r '.[] | "\(.name)@\(.version) \(.license // .licenses // "unknown")"' | tee "$RUNNER_TEMP/licences.txt"
+          if grep -E "$EXCLUDED_LICENCES" "$RUNNER_TEMP/licences.txt"; then
+            echo "scan: a licence excluded by spec 00 0.10 is listed above" >&2
+            exit 1
+          fi
+          npm audit --omit=dev
 
   unit:
     runs-on: ubuntu-latest
