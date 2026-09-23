@@ -45,29 +45,25 @@ One change per pull request, against `main`. The title is `type(scope): one clau
 most 72 characters, without a trailing period. The body has these sections, in this
 order:
 
+<!-- prettier-ignore -->
 ```markdown
 Closes #N
 
 ## What changed
-
 The change and the reason for it, readable without the diff.
 
 ## Acceptance
-
 - [x] **Each acceptance criterion of the issue, quoted**: the test, file or command
-      that shows it.
+  that shows it.
 
 ## Verification
-
 - `<command>`: <its final status line>
 
 ## Decisions
-
 - Each choice the issue left open, the option taken and why; the licence of every new
   dependency.
 
 ## Not done
-
 - Each omission with its reason, or: Nothing in scope was left undone.
 ```
 
