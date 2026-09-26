@@ -225,7 +225,7 @@ describe("pickAudio()", () => {
     ["recorder-aac", { recorder: ["audio/mp4"] }],
     ["none", { recorder: [] }],
     ["none", { recorder: null }],
-  ] as const)("returns %s in 6.3 order", async (path, r) => {
+  ] as const)("returns %s in 6.3 order for %j", async (path, r) => {
     runtime(r);
     await expect(pickAudio()).resolves.toBe(path);
   });
