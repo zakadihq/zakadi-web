@@ -1,0 +1,22 @@
+{
+  "name": "recorder-floor",
+  "description": "mediarecorder: the rung never changes, a keyframe request does not skip a tick and set_rung does not move the loop, so 15 ticks above 1500 ms at the recorder's rung breach the floor 3 s after the queue builds.",
+  "profile": "mediarecorder",
+  "covers": [1, 2, 3, 4, 6],
+  "start": 2,
+  "until": 5000,
+  "sent": [[0, 10000]],
+  "media": [[0, 10000]],
+  "queued": [
+    [0, 0],
+    [900, 100000]
+  ],
+  "events": [
+    [1500, "set", 4],
+    [1900, "keyframe"]
+  ],
+  "expect": {
+    "rungs": [],
+    "floor": 3800
+  }
+}

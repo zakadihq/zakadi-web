@@ -1,0 +1,29 @@
+{
+  "name": "recorder-recovers",
+  "description": "mediarecorder at rung 3: 9 ticks above 1500 ms then an empty queue reset the floor count; stats report the last tick's queue_ms every 500 ms.",
+  "profile": "mediarecorder",
+  "covers": [1, 5],
+  "start": 3,
+  "until": 3200,
+  "sent": [[0, 5000]],
+  "media": [[0, 4500]],
+  "queued": [
+    [0, 0],
+    [900, 40000],
+    [2700, 0]
+  ],
+  "events": [],
+  "stats_interval_ms": 500,
+  "expect": {
+    "rungs": [],
+    "floor": null,
+    "stats": [
+      [500, 0, 36],
+      [1000, 2560, 90],
+      [1500, 2560, 126],
+      [2000, 1600, 180],
+      [2500, 1600, 180],
+      [3000, 0, 180]
+    ]
+  }
+}

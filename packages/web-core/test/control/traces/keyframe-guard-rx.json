@@ -1,0 +1,19 @@
+{
+  "name": "keyframe-guard-rx",
+  "description": "ping.rx_kbps below 0.8 x encoded_kbps for 2 s counts as queue_ms above 600; the tick within 300 ms of a keyframe request is skipped, so the second such tick comes 200 ms later.",
+  "profile": "webcodecs",
+  "covers": [1, 2, 3, 4],
+  "start": 2,
+  "until": 5000,
+  "sent": [[0, 10000]],
+  "media": [[0, 10000]],
+  "queued": [[0, 0]],
+  "events": [
+    [1000, "rx", 150, 1000, 5000],
+    [3100, "keyframe"]
+  ],
+  "expect": {
+    "rungs": [[3400, 3, 1, "backpressure"]],
+    "floor": null
+  }
+}
