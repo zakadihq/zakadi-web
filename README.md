@@ -2,7 +2,7 @@
 
 Web SDK for Zakadi (active face liveness as a short automated video call). An npm workspaces monorepo with one `package-lock.json` at the root: `packages/web-core` (`@zakadi/web-core`: WebCodecs capture and encode, WebSocket transport, control loop), then `packages/ui` (`@zakadi/ui`, the `<zakadi-call>` Web Components call UI), `packages/react` and `packages/angular`, with `examples/` and `e2e/`. `@zakadi/protocol` comes from the npm registry at a pinned version; nothing of it is built here. Specification: `zakadi/spec/06-web-sdk.md` and the SDK contract `spec/05-sdk-contract.md`.
 
-Status: scaffold; `@zakadi/web-core` exports nothing yet.
+Status: `@zakadi/web-core` exposes the session API of `spec/06-web-sdk.md` 6.2.2 (`createZakadiSession`, `ZakadiError`, `LIVENESS_EVENT_TYPES`) over its engine worker, with the renderer bridge that `@zakadi/ui` draws from; `@zakadi/ui` is not started.
 
 ## Development
 
