@@ -1,4 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src", "test"]
+  "compilerOptions": {
+    "allowJs": true
+  },
+  "include": ["src", "test"],
+  "exclude": ["src/engine/engine.worker.ts", "src/engine/worker.d.ts"]
 }

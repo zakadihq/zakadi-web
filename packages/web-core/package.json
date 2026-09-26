@@ -4,8 +4,8 @@
   "description": "Zakadi web core: capture, encoding, transport and the control loop of the face-liveness call.",
   "scripts": {
     "test": "vitest run",
-    "build": "vite build && tsc6 --emitDeclarationOnly -p tsconfig.build.json",
-    "lint": "tsc --noEmit"
+    "build": "vite build -c vite.worker.config.ts && vite build && tsc6 --emitDeclarationOnly -p tsconfig.build.json && node scripts/copy-static.mjs",
+    "lint": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json"
   },
   "keywords": [],
   "author": "",
@@ -21,7 +21,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./engine.worker.js": "./dist/engine.worker.js",
+    "./capture.worklet.js": "./dist/capture.worklet.js",
+    "./unsupported.js": "./dist/unsupported.js"
   },
   "files": [
     "dist"

@@ -1,8 +1,10 @@
 import { defineConfig } from "vite";
 import pkg from "./package.json" with { type: "json" };
 
-// spec/06-web-sdk.md 6.1.3. The engine worker build (vite.worker.config.ts) and the
-// static files arrive with their sources.
+// spec/06-web-sdk.md 6.1.3. The main entry, after vite.worker.config.ts has written
+// dist/engine.worker.js, so dist/ is kept. The inline engine (src/engine/inline.ts) is
+// a lazy chunk. worker-url.js stays an import: scripts/copy-static.mjs copies it
+// verbatim, since bundling would rewrite the `new URL()` its host bundler must see.
 export default defineConfig({
   define: {
     __LV_DEBUG__: "false",
@@ -14,6 +16,10 @@ export default defineConfig({
     lib: { entry: { index: "src/index.ts" }, formats: ["es"] },
     minify: "oxc",
     sourcemap: true,
-    rolldownOptions: { external: [/^@zakadi\/protocol/, "./worker-url.js"] },
+    emptyOutDir: false,
+    rolldownOptions: {
+      external: [/^@zakadi\/protocol/, /(^|\/)worker-url\.js$/],
+      output: { chunkFileNames: "[name].js" },
+    },
   },
 });
