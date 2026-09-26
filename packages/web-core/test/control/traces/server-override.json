@@ -1,0 +1,26 @@
+{
+  "name": "server-override",
+  "description": "set_rung 4 holds the loop for 3 s: a queue spike inside the hold changes nothing; after it, the stable RTT and empty queue step up once the dwell from the override has passed.",
+  "profile": "webcodecs",
+  "covers": [3, 4],
+  "start": 2,
+  "until": 4600,
+  "sent": [[0, 10000]],
+  "media": [[0, 9000]],
+  "queued": [
+    [0, 0],
+    [1900, 100000],
+    [2500, 0]
+  ],
+  "events": [
+    [200, "rtt", 100, 1000, 4200],
+    [1000, "set", 4]
+  ],
+  "expect": {
+    "rungs": [
+      [1000, 4, 0, "server"],
+      [4200, 3, 0, "headroom"]
+    ],
+    "floor": null
+  }
+}

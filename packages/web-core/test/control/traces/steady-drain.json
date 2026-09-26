@@ -1,0 +1,25 @@
+{
+  "name": "steady-drain",
+  "description": "A steady 10000 B queue at rung 2: queue_ms uses the drain floor (25000 B/s) until 1 s of history exists, then the measured drain; stats report the last tick's queue_ms every 500 ms.",
+  "profile": "webcodecs",
+  "covers": [1, 5],
+  "start": 2,
+  "until": 3000,
+  "sent": [[0, 10000]],
+  "media": [[0, 9000]],
+  "queued": [[0, 10000]],
+  "events": [],
+  "stats_interval_ms": 500,
+  "expect": {
+    "rungs": [],
+    "floor": null,
+    "stats": [
+      [500, 400, 72],
+      [1000, 250, 180],
+      [1500, 200, 252],
+      [2000, 200, 360],
+      [2500, 200, 360],
+      [3000, 200, 360]
+    ]
+  }
+}

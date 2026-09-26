@@ -1,0 +1,19 @@
+{
+  "name": "rtt-hidden",
+  "description": "RTT samples above twice the session median for 2 s count as queue_ms above 600 with an empty queue; the bad run starts at 3000 ms, so ticks 5000 and 5200 count and 5200 steps down.",
+  "profile": "webcodecs",
+  "covers": [1, 3, 4],
+  "start": 2,
+  "until": 5400,
+  "sent": [[0, 10000]],
+  "media": [[0, 9000]],
+  "queued": [[0, 0]],
+  "events": [
+    [200, "rtt", 100, 200, 2800],
+    [3000, "rtt", 300, 200, 5400]
+  ],
+  "expect": {
+    "rungs": [[5200, 3, 1, "backpressure"]],
+    "floor": null
+  }
+}

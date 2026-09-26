@@ -1,0 +1,26 @@
+{
+  "name": "two-tick-downshift",
+  "description": "queue_ms 667 on two consecutive ticks steps down one rung with decimation 1; the queue then empties and, with a stable RTT, the rung steps up once the 3 s dwell has passed and the last IDR is more than 1 s old.",
+  "profile": "webcodecs",
+  "covers": [1, 3, 4],
+  "start": 2,
+  "until": 6000,
+  "sent": [[0, 10000]],
+  "media": [[0, 9000]],
+  "queued": [
+    [0, 0],
+    [1100, 20000],
+    [1500, 0]
+  ],
+  "events": [
+    [200, "rtt", 100, 1000, 5200],
+    [4000, "idr"]
+  ],
+  "expect": {
+    "rungs": [
+      [1400, 3, 1, "backpressure"],
+      [5200, 2, 0, "headroom"]
+    ],
+    "floor": null
+  }
+}
