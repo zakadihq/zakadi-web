@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "paths": { "@zakadi/web-core": ["../web-core/src/index.ts"] }
+  },
+  "include": ["src", "test"]
+}
