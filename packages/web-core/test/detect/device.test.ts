@@ -316,7 +316,7 @@ describe("inAppBrowser()", () => {
     ["WhatsApp on Android (Chrome)", UA.chromeReduced, undefined],
     ["WhatsApp on iOS (Safari)", UA.safari, undefined],
     ["Samsung Internet", UA.samsung, undefined],
-  ])("%s: %s", (_, ua, expected) => {
+  ])("%s", (_, ua, expected) => {
     expect(inAppBrowser(ua)).toBe(expected);
   });
 
