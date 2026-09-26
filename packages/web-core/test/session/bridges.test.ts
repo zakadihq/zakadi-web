@@ -123,6 +123,20 @@ describe("the renderer bridge", () => {
     expect(connecting[0]!.previewHidden).toBe(true);
     expect(connecting.at(-1)!.previewHidden).toBe(false);
   });
+
+  it("brings the manifest's tile_palette with a view change (6.2.9, 6.4.3)", async () => {
+    const h = await setup({ headless: false });
+    await toActive(h);
+    const views = h.renderer!.views;
+    const at = views.findIndex((v) => !!v.palette?.length);
+    // Empty in every view before the manifest, then its palette, before the call.
+    expect(at).toBeGreaterThan(0);
+    for (const v of views.slice(0, at)) expect(v.palette).toEqual([]);
+    expect(views[at]!.screen).toBe("connecting");
+    expect(views[at]!.palette).toEqual(h.pack.manifest.tile_palette);
+    expect(views.findIndex((v) => v.screen === "call")).toBeGreaterThan(at);
+    expect(h.renderer!.bridge!.view().palette).toEqual(PALETTE);
+  });
 });
 
 describe("terminal cues (5.8, D39)", () => {

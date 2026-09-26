@@ -31,6 +31,12 @@ export interface RendererView {
   a11y: A11y;
   /** The pack character's Lottie JSON, hash checked; null draws colour only (D73). */
   character: unknown;
+  /**
+   * The pack manifest's `tile_palette`, `[h, s, l]` per `tile` symbol; empty until the
+   * pack loads, and read as empty where absent. Before the first `tile` the tile is a
+   * neutral grey at its luminance (6.2.9, 6.4.3, G4).
+   */
+  palette?: [number, number, number][];
   lottieRenderer: NonNullable<UiOptions["lottieRenderer"]>;
   localMeter: boolean;
   /** The server's `message` for `sdk_disabled`. */
