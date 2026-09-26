@@ -11,7 +11,7 @@ import type {
   ZakadiRenderer,
 } from "@zakadi/web-core";
 import { character, rendererFor, type Character } from "./character";
-import { contrast, grey, hsl, parseColor, type Rgba } from "./color";
+import { contrast, grey, hsl, luminance, parseColor, type Rgba } from "./color";
 import { el, show, svg, text } from "./dom";
 import { governor } from "./governor";
 import { ARROWS, DIM, H, OVAL, W } from "./guide";
@@ -33,7 +33,7 @@ const LOCAL: readonly Screen[] = [
   "connecting",
   "call",
 ];
-/** The tile before the first `tile`: a neutral grey, the session's own fallback. */
+/** The tile before the first `tile` with an empty palette: the session's fallback. */
 export const NEUTRAL: Hsl = [0, 0, 50];
 /** `surround.brightness` before the first `ui` (G5). */
 export const SURROUND = 0.9;
@@ -49,6 +49,24 @@ const TOKENS = [
 ] as const;
 
 const isTerminal = (s: Screen): s is Terminal => !LOCAL.includes(s);
+
+/**
+ * The tile before the first `tile` (6.4.3, G4): the neutral grey at the relative
+ * luminance the palette's hues share (01 1.5), as an hsl() lightness to 0.1 %.
+ */
+function paletteGrey(palette: readonly Hsl[] = []): Hsl {
+  const ys = palette.map((c) => {
+    const rgba = parseColor(hsl(c));
+    return rgba ? luminance(rgba) : NaN;
+  });
+  // Their mean: the entries share it to within the rounding of their hsl() values.
+  const y = ys.reduce((a, b) => a + b, 0) / ys.length;
+  // An empty palette, or an entry that is no colour.
+  if (!Number.isFinite(y)) return NEUTRAL;
+  // A grey's lightness is its sRGB value: the standard encoding of y, as in grey().
+  const v = y <= 0.0031308 ? 12.92 * y : 1.055 * y ** (1 / 2.4) - 0.055;
+  return [0, 0, Math.round(1000 * v) / 10];
+}
 
 /** The language's own name for the consent screen's switcher. */
 function languageName(tag: string): string {
@@ -232,6 +250,7 @@ function createCall(host: HTMLElement) {
   let lottie: Character | undefined;
   let connected = false;
   let painted = false;
+  let tiled = false; // a `tile` has painted the tile since the bridge was bound
   let raf = 0;
   let last = 0;
   let envelope = 0;
@@ -612,6 +631,9 @@ function createCall(host: HTMLElement) {
       if (figureData)
         lottie = character(figure, figureData, rendererFor(v.lottieRenderer));
     }
+    // Until the first `tile`, the grey at the palette's luminance; the view brings the
+    // palette when the pack loads (6.4.3, G4).
+    if (!tiled) paintTile(paletteGrey(v.palette));
     const changed = s !== screen;
     screen = s;
     renderUi();
@@ -635,7 +657,7 @@ function createCall(host: HTMLElement) {
     numbers.reset();
     live.textContent = "";
     etBox.checked = !!bridge?.view().a11y.extended_time;
-    paintTile(NEUTRAL);
+    tiled = false;
   };
 
   const unbind = (b: RendererBridge) => {
@@ -665,7 +687,10 @@ function createCall(host: HTMLElement) {
           state = s;
           renderUi();
         }),
-        b.onTile((_m, c) => paintTile(c)),
+        b.onTile((_m, c) => {
+          tiled = true;
+          paintTile(c);
+        }),
         b.onSay((m) => {
           if (!m.caption) return;
           said = m.caption;
