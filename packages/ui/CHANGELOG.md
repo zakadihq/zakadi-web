@@ -25,4 +25,10 @@ All notable changes to `@zakadi/ui` are documented here. The format follows
 - The host's character, played by lottie-web's light players loaded on demand, with
   static poses under reduced motion.
 
+### Changed
+
+- Before the first `tile`, the host tile is the neutral grey at the luminance of the
+  pack's palette, from the renderer view's `palette`, so the first `tile` changes its
+  hue alone; `hsl(0, 0%, 50%)` shows only while the view carries no palette.
+
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main
