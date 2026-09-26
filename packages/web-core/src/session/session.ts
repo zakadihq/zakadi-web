@@ -302,6 +302,7 @@ export function createSession(
     strings: sdkStrings(lang, config.sessionUi.badge_text),
     a11y: a11y(),
     character: ui.character === false ? null : character,
+    palette,
     lottieRenderer: ui.lottieRenderer ?? "auto",
     localMeter: !!ui.localMeter,
     message,

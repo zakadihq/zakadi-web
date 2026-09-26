@@ -24,5 +24,7 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
   settings; the SDK's own strings in English and French.
 - The exports `./engine.worker.js`, `./capture.worklet.js` and `./unsupported.js`, for
   hosts that serve them from their own origin.
+- `RendererView.palette`: the prompt pack's `tile_palette`, empty until the pack loads,
+  with a view change when it arrives, for the tile's colour before the first `tile`.
 
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main
