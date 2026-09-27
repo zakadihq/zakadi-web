@@ -1,7 +1,15 @@
 import type { AudioStateMsg } from "@zakadi/protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PALETTE } from "../audio/fakes";
-import { serve, setup, teardown, toActive, type Harness } from "./harness";
+import {
+  begin,
+  serve,
+  setup,
+  teardown,
+  toActive,
+  until,
+  type Harness,
+} from "./harness";
 
 // The server's messages on the main thread (spec/01-protocol.md 1.2, spec/06-web-sdk.md
 // 6.4.5, spec/05-sdk-contract.md 5.8): validated there, then handed in arrival order to
@@ -81,6 +89,62 @@ describe("the headless bridge (6.4.5)", () => {
     expect(states[1]!.at_ms).toBeGreaterThan(states[0]!.at_ms);
   });
 
+  it("palette() is empty before the manifest loads and its tile_palette from the first onUi call on (6.2.2, 6.4.3)", async () => {
+    const h = await setup();
+    const b = h.session.headless!;
+    const at: [string, unknown][] = [["idle", b.palette()]];
+    h.session.on("state_changed", (e) => at.push([e.to, b.palette()]));
+    const onUi: unknown[] = [];
+    b.onUi(() => onUi.push(b.palette()));
+    await toActive(h);
+    serve(h, { t: "ui", state: { phase: "framing" } });
+    serve(h, { t: "ui", state: { phase: "action" } });
+    await vi.advanceTimersByTimeAsync(10);
+    // The manifest is applied once the pack has loaded, during connecting.
+    expect(at).toEqual([
+      ["idle", []],
+      ["consent", []],
+      ["permission", []],
+      ["connecting", []],
+      ["active", PALETTE],
+    ]);
+    expect(onUi).toEqual([PALETTE, PALETTE]);
+    expect(b.palette()).toEqual(h.pack.manifest.tile_palette);
+  });
+
+  it("palette() stays empty when no manifest loads", async () => {
+    const h = await setup({ noPack: true });
+    const b = h.session.headless!;
+    const at: unknown[] = [b.palette()];
+    h.session.on("state_changed", () => at.push(b.palette()));
+    begin(h);
+    await until(() => h.session.state === "error");
+    expect(h.events).toContainEqual(
+      expect.objectContaining({ type: "error", code: "pack_unavailable" }),
+    );
+    expect(at).toEqual([[], [], [], [], []]);
+  });
+
+  it("palette() is a copy: changing what it returned leaves later onTile colours unchanged (5.8)", async () => {
+    const h = await setup();
+    const b = h.session.headless!;
+    const got: string[] = [];
+    b.onTile((m, hsl) => got.push(`tile ${m.symbol} ${hsl.join(",")}`));
+    await toActive(h);
+    const p = b.palette() as [number, number, number][];
+    p[5]![0] = 0; // an entry changed in place
+    p[3] = [0, 0, 0]; // an entry replaced
+    p.length = 1; // entries removed
+    serve(h, { t: "tile", symbol: 5, min_ms: 400 });
+    serve(h, { t: "tile", symbol: 3, min_ms: 400 });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(got).toEqual([
+      `tile 5 ${PALETTE[5]!.join(",")}`,
+      `tile 3 ${PALETTE[3]!.join(",")}`,
+    ]);
+    expect(b.palette()).toEqual(PALETTE);
+  });
+
   it("press(): repeat and more_time as ui_event; cancel adds bye user_cancel (6.4.2)", async () => {
     const h = await setup();
     await toActive(h);
@@ -136,6 +200,7 @@ describe("the renderer bridge", () => {
     expect(views[at]!.palette).toEqual(h.pack.manifest.tile_palette);
     expect(views.findIndex((v) => v.screen === "call")).toBeGreaterThan(at);
     expect(h.renderer!.bridge!.view().palette).toEqual(PALETTE);
+    expect(h.renderer!.bridge!.palette()).toEqual(PALETTE);
   });
 });
 

@@ -910,6 +910,8 @@ export function createSession(
     previewStream: () => (camera && !finished ? camera.stream : null),
     onUi: (h) => sub(subs.ui, h),
     onTile: (h) => sub(subs.tile, h),
+    // A copy, entries included, so that no change to it reaches `onTile` (5.8).
+    palette: () => palette.map((c): [number, number, number] => [...c]),
     onSay: (h) => sub(subs.say, h),
     onFeedback: (h) => sub(subs.feedback, h),
     press(control) {
