@@ -30,5 +30,7 @@ All notable changes to `@zakadi/ui` are documented here. The format follows
 - Before the first `tile`, the host tile is the neutral grey at the luminance of the
   pack's palette, from the renderer view's `palette`, so the first `tile` changes its
   hue alone; `hsl(0, 0%, 50%)` shows only while the view carries no palette.
+- The canvas Lottie player's lazy chunk has a 60 KB gzip budget, since
+  `lottie_light_canvas` 5.13.0 measures 54.7 KB; the SVG player's stays at 55 KB.
 
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main

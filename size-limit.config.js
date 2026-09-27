@@ -53,11 +53,12 @@ export default [
     limit: "55 KB",
   },
   {
-    // lottie_light_canvas, loaded instead where the canvas renderer is chosen.
+    // lottie_light_canvas, loaded instead where the canvas renderer is chosen: 60 KB,
+    // since 5.13.0 measures 54.7 KB (D113).
     name: "Lottie chunk (canvas)",
     path: ui + "index.js",
     entry: ["lottie_light_canvas.min"],
     gzip: true,
-    limit: "55 KB",
+    limit: "60 KB",
   },
 ];

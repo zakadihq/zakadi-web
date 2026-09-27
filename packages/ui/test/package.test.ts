@@ -54,7 +54,7 @@ describe("packages/ui/package.json (6.1.2, 11.4)", () => {
 });
 
 describe("npm run size (6.1.5)", () => {
-  it("fails above 24 KB for @zakadi/ui without Lottie and 55 KB for each Lottie chunk", async () => {
+  it("fails above 24 KB for @zakadi/ui without Lottie, 55 KB for the Lottie chunk and 60 KB for its canvas variant", async () => {
     const { default: checks } =
       (await import("../../../size-limit.config.js")) as {
         default: {
@@ -73,16 +73,16 @@ describe("npm run size (6.1.5)", () => {
       gzip: true,
       limit: "24 KB",
     });
-    for (const [name, chunk] of [
-      ["Lottie chunk", "lottie_light.min"],
-      ["Lottie chunk (canvas)", "lottie_light_canvas.min"],
+    for (const [name, chunk, limit] of [
+      ["Lottie chunk", "lottie_light.min", "55 KB"],
+      ["Lottie chunk (canvas)", "lottie_light_canvas.min", "60 KB"],
     ])
       expect(byName[name!]).toEqual({
         name,
         path: "packages/ui/dist/index.js",
         entry: [chunk],
         gzip: true,
-        limit: "55 KB",
+        limit,
       });
   });
 });
