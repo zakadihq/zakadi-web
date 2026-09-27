@@ -8,7 +8,7 @@ import { bound, viewOf, visible } from "./fakes";
 // spec/01-protocol.md 1.5: the client MUST render any `ui` state from scratch, the
 // message being idempotent, not a delta; spec/05-sdk-contract.md 5.16 asks for every
 // `ui` state of the transcript set. Each distinct state of the `sessions/*.jsonl` of
-// @zakadi/protocol@0.1.0 renders in a fresh element exactly as it does after all the
+// @zakadi/protocol@0.2.0 renders in a fresh element exactly as it does after all the
 // others, and shows what it says.
 afterEach(() => {
   vi.useRealTimers();
@@ -62,9 +62,9 @@ function fresh(s: UiState) {
 }
 
 describe("the ui states of the transcripts (1.5, 5.16)", () => {
-  it("are the twelve distinct states of the seven transcripts", () => {
-    expect(loadVectors().sessions).toHaveLength(7);
-    expect(states).toHaveLength(12);
+  it("are the sixteen distinct states of the eight transcripts", () => {
+    expect(loadVectors().sessions).toHaveLength(8);
+    expect(states).toHaveLength(16);
   });
 
   it.each(states.map((s, i) => [i, s.phase, s] as const))(

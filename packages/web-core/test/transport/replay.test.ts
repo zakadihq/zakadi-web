@@ -28,9 +28,16 @@ import { fromBase64url, readHeader } from "./read";
 // send, between the transcript's messages: stats, attest and own pings (sampled or
 // absent in the transcripts); the config pair of a keyframe boost (6.2.7 step 3, G2),
 // at the boost's start and end; and, in protocol-error, whose recorded client streamed
-// before any probe, the probe's probe_done. `stats` lines are counted, not matched. A
-// pong is placed by its ping, which it answers at once: the client probes as soon as
-// `ready` arrives (5.6), before the ping the transcripts answer first.
+// before any probe, the probe's probe_done. `stats` and `attest` lines are counted,
+// not matched: the client attests on its own video pts, and the one right before a
+// `bye` is checked. A pong is placed by its ping, which it answers at once: the client
+// probes as soon as `ready` arrives (5.6), before the ping the transcripts answer first.
+//
+// The client's own messages are checked in the transcript's order, and the session's
+// own messages in theirs: the harness hands the latter over at recorded offsets while
+// the client's rung switches follow the fake uplink, so the two need not interleave as
+// recorded (on floor-breached the client's downshifts and its bye come early). A
+// session message handed over after the client's bye is not sent.
 const sessions = loadVectors().sessions;
 const fs = builtin<{ readFileSync(p: string, enc: "utf8"): string }>("node:fs");
 const required = (t: string): string[] =>
@@ -99,6 +106,8 @@ function run(tr: Transcript) {
   sock.open();
   for (const [at, rate] of UPLINK[tr.meta.name] ?? [])
     setTimeout(() => (sock.uplink = rate), at);
+  // The session's messages handed over before the client's bye: the ones it sends.
+  const handed: ClientMsg[] = [];
   for (const l of tr.lines) {
     if ("close" in l)
       setTimeout(
@@ -108,14 +117,26 @@ function run(tr: Transcript) {
     else if ("msg" in l && l.dir === "s2c")
       setTimeout(() => sock.receive(l.msg), l.t_ms);
     else if ("msg" in l && fromSession(l.msg))
-      setTimeout(() => t.send(l.msg as never), l.t_ms);
+      setTimeout(() => {
+        if (!sock.texts("bye").length) handed.push(l.msg);
+        t.send(l.msg as never);
+      }, l.t_ms);
   }
   const boosts = s2c.flatMap((l) =>
     "msg" in l && l.msg.t === "keyframe" && (l.msg as KeyframeMsg).boost_ms
       ? [l.t_ms, l.t_ms + (l.msg as KeyframeMsg).boost_ms!]
       : [],
   );
-  return { sock, events, t0, c2s, s2c, boosts, end: tr.lines.at(-1)!.t_ms };
+  return {
+    sock,
+    events,
+    t0,
+    c2s,
+    s2c,
+    handed,
+    boosts,
+    end: tr.lines.at(-1)!.t_ms,
+  };
 }
 
 // JSON with sorted keys, so that field order does not matter.
@@ -140,6 +161,29 @@ function matches(e: ClientMsg, a: ClientMsg): boolean {
   if (!required(a.t).every((k) => k in a)) return false;
   const keys = SAME[e.t] ?? [];
   return canon(pick(e, keys)) === canon(pick(a, keys));
+}
+
+/** `sent` has `expected` in order; only messages `extra` accepts come between or after. */
+function inOrder(
+  expected: ClientMsg[],
+  sent: Sent[],
+  t0: number,
+  extra: (s: Sent) => boolean,
+) {
+  let j = 0;
+  for (const e of expected) {
+    while (j < sent.length && !matches(e, sent[j]!.msg!)) {
+      expect(
+        extra(sent[j]!),
+        `${sent[j]!.msg!.t} at ${sent[j]!.at - t0} ms, before ${e.t}`,
+      ).toBe(true);
+      j++;
+    }
+    expect(j, `no ${JSON.stringify(e)}`).toBeLessThan(sent.length);
+    j++;
+  }
+  for (const s of sent.slice(j))
+    expect(extra(s), `${s.msg!.t} after the last expected message`).toBe(true);
 }
 
 beforeEach(() => {
@@ -186,41 +230,43 @@ describe.each(sessions)("replaying $meta.name", (tr) => {
       r.c2s.flatMap((m) => (m.t === "pong" ? [m.re] : [])),
     );
 
-    // The transcript's other messages in order, by type and required fields.
-    const skip = ["camera_meta", "stats", "pong"];
-    const expected = r.c2s.filter((m) => !skip.includes(m.t));
-    const actual = texts.filter(
-      (s) => s.msg!.t !== "camera_meta" && s.msg!.t !== "pong",
-    );
+    // The client's own messages in the transcript's order, by type and required
+    // fields; stats and attest are counted below.
+    const skip = ["camera_meta", "pong", "stats", "attest"];
+    const own = (m: ClientMsg) => !fromSession(m) && !skip.includes(m.t);
     const extra = (s: Sent) =>
       ["stats", "attest", "ping"].includes(s.msg!.t) ||
       (s.msg!.t === "config" && r.boosts.includes(s.at - r.t0)) ||
       (s.msg!.t === "probe_done" && tr.meta.name === "protocol-error");
-    let j = 0;
-    for (const e of expected) {
-      while (j < actual.length && !matches(e, actual[j]!.msg!)) {
-        expect(
-          extra(actual[j]!),
-          `${actual[j]!.msg!.t} at ${actual[j]!.at - r.t0} ms, before ${e.t}`,
-        ).toBe(true);
-        j++;
-      }
-      expect(j, `no ${JSON.stringify(e)}`).toBeLessThan(actual.length);
-      j++;
-    }
-    for (const s of actual.slice(j))
-      expect(extra(s), `${s.msg!.t} after the last expected message`).toBe(
-        true,
-      );
+    inOrder(
+      r.c2s.filter(own),
+      texts.filter(
+        (s) =>
+          !fromSession(s.msg!) && !["camera_meta", "pong"].includes(s.msg!.t),
+      ),
+      r.t0,
+      extra,
+    );
+    // The session's own messages in their own order: each one handed over before the
+    // client's bye, and none after it.
+    inOrder(
+      r.handed,
+      texts.filter((s) => fromSession(s.msg!)),
+      r.t0,
+      () => false,
+    );
     // The final attest immediately before bye.
     const bye = texts.findIndex((s) => s.msg!.t === "bye");
     if (bye >= 0) expect(texts[bye - 1]!.msg!.t).toBe("attest");
     expect(texts.filter((s) => s.msg!.t === "bye")).toHaveLength(
       r.c2s.filter((m) => m.t === "bye").length,
     );
-    expect(
-      texts.filter((s) => s.msg!.t === "stats").length,
-    ).toBeGreaterThanOrEqual(r.c2s.filter((m) => m.t === "stats").length);
+    // At least as many stats and attest messages as the transcript has.
+    for (const t of ["stats", "attest"])
+      expect(
+        texts.filter((s) => s.msg!.t === t).length,
+        t,
+      ).toBeGreaterThanOrEqual(r.c2s.filter((m) => m.t === t).length);
 
     // The end or the close, and any error, reach the session.
     for (const l of r.s2c)
