@@ -105,15 +105,16 @@ export function createAudio(options: AudioOptions): Audio {
     return buf ? [buf, clip.dur] : "decode";
   };
 
-  // The performance.now() time at which context time `t` is heard: `t` plus the
-  // output latency, mapped through getOutputTimestamp(), or through currentTime
-  // where the browser gives no timestamp.
+  // The performance.now() time at which context time `t` is heard: `t` mapped through
+  // getOutputTimestamp(), which already lands on the audible instant; where the
+  // browser gives no timestamp, `t` plus the output latency (the base latency where
+  // that is 0) mapped through currentTime. Never both corrections at once (D117).
   const heard = (c: AudioContext, t: number): number => {
     const stamp = c.getOutputTimestamp?.();
-    const audible = t + (c.outputLatency || c.baseLatency || 0);
     return stamp?.performanceTime
-      ? stamp.performanceTime + (audible - (stamp.contextTime ?? 0)) * 1000
-      : performance.now() + (audible - c.currentTime) * 1000;
+      ? stamp.performanceTime + (t - (stamp.contextTime ?? 0)) * 1000
+      : performance.now() +
+          (t + (c.outputLatency || c.baseLatency || 0) - c.currentTime) * 1000;
   };
 
   const report = (
