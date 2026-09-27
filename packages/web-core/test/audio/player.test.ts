@@ -14,8 +14,9 @@ import {
 
 // spec/06-web-sdk.md 6.2.9, spec/05-sdk-contract.md 5.7 and 5.8, spec/01-protocol.md
 // 1.4 audio_state and 1.5 say. Under fake timers performance.now() starts at 0; the
-// fake context's output latency is 40 ms and getOutputTimestamp() puts the output
-// position 5 ms behind currentTime, so context time t is heard at 1000 t + 45 ms.
+// fake context's getOutputTimestamp() puts the output position 5 ms behind currentTime,
+// so context time t is heard at 1000 t + 5 ms. Its output latency (40 ms) and base
+// latency (10 ms) count only where getOutputTimestamp() is missing (D117).
 const CUES = {
   "greet.intro": 1200,
   "ack.nice": 800,
@@ -152,34 +153,64 @@ describe("say", () => {
     await vi.advanceTimersByTimeAsync(20);
     expect(sent).toEqual([]);
     await vi.advanceTimersByTimeAsync(10);
-    // Starts at 0.03 s, heard at 75 ms: 55 on the media clock.
-    expect(lines(sent)).toEqual(["s1 started 55"]);
+    // Starts at 0.03 s, heard at 35 ms: 15 on the media clock.
+    expect(lines(sent)).toEqual(["s1 started 15"]);
     await vi.advanceTimersByTimeAsync(500);
-    expect(lines(sent)).toEqual(["s1 started 55"]);
+    expect(lines(sent)).toEqual(["s1 started 15"]);
     expect(events).toContainEqual([
       "cue_play",
-      { cue: "greet.intro", ms_to_start: 75 },
+      { cue: "greet.intro", ms_to_start: 35 },
     ]);
   });
 
-  it("maps through currentTime and baseLatency where getOutputTimestamp() and outputLatency are missing", async () => {
-    const { audio, ctx, sent } = await setup();
-    ctx.getOutputTimestamp = undefined;
-    ctx.outputLatency = 0;
-    audio.say(say("s1", "greet.intro"));
-    await vi.advanceTimersByTimeAsync(30);
-    // 0.03 s plus the 10 ms base latency: heard at 40 ms.
-    expect(lines(sent)).toEqual(["s1 started 20"]);
-  });
+  it.each([
+    [0.04, 0.01],
+    [0.25, 0.1],
+    [0, 0.1],
+    [0, 0],
+  ])(
+    "maps started and ended through getOutputTimestamp() alone, with outputLatency %s and baseLatency %s",
+    async (outputLatency, baseLatency) => {
+      const { audio, ctx, sent } = await setup();
+      ctx.outputLatency = outputLatency;
+      ctx.baseLatency = baseLatency;
+      audio.say(say("s1", "greet.intro"));
+      await vi.advanceTimersByTimeAsync(2000);
+      // Its audio runs from 0.03 s to 1.28 s, heard 5 ms later whatever the latencies.
+      expect(lines(sent)).toEqual(["s1 started 15", "s1 ended 1265"]);
+    },
+  );
+
+  it.each([
+    ["outputLatency", 0.04, 0.01, ["s1 started 50", "s1 ended 1300"]],
+    [
+      "baseLatency where outputLatency is 0",
+      0,
+      0.01,
+      ["s1 started 20", "s1 ended 1270"],
+    ],
+  ] as const)(
+    "maps started and ended through currentTime plus %s where getOutputTimestamp() is missing",
+    async (_latency, outputLatency, baseLatency, expected) => {
+      const { audio, ctx, sent } = await setup();
+      ctx.getOutputTimestamp = undefined;
+      ctx.outputLatency = outputLatency;
+      ctx.baseLatency = baseLatency;
+      audio.say(say("s1", "greet.intro"));
+      await vi.advanceTimersByTimeAsync(2000);
+      // Its audio runs from 0.03 s to 1.28 s, heard 40 ms (output) or 10 ms (base) later.
+      expect(lines(sent)).toEqual(expected);
+    },
+  );
 
   it("sends one ended at the last source's onended, at the end of its audio", async () => {
     const { audio, sent } = await setup();
     audio.say(say("s1", "digits.say", { params: { digits: [4, 7] } }));
     await vi.advanceTimersByTimeAsync(2900);
-    expect(lines(sent)).toEqual(["s1 started 55"]);
+    expect(lines(sent)).toEqual(["s1 started 15"]);
     await vi.advanceTimersByTimeAsync(100);
-    // The last clip starts at 2.37 s and its audio ends 0.55 s later, heard at 2965 ms.
-    expect(lines(sent)).toEqual(["s1 started 55", "s1 ended 2945"]);
+    // The last clip starts at 2.37 s and its audio ends 0.55 s later, heard at 2925 ms.
+    expect(lines(sent)).toEqual(["s1 started 15", "s1 ended 2905"]);
     await vi.advanceTimersByTimeAsync(5000);
     expect(sent).toHaveLength(2);
   });
@@ -195,10 +226,10 @@ describe("say", () => {
     // s1 ends at 1.28 s; s2 starts 30 ms later and lasts 0.85 s.
     expect(played()[1]?.when).toBeCloseTo(1.31, 9);
     expect(lines(sent)).toEqual([
-      "s1 started 55",
-      "s1 ended 1305",
-      "s2 started 1335",
-      "s2 ended 2185",
+      "s1 started 15",
+      "s1 ended 1265",
+      "s2 started 1295",
+      "s2 ended 2145",
     ]);
   });
 
@@ -208,8 +239,8 @@ describe("say", () => {
     audio.say(say("s2", "greet.intro"));
     await vi.advanceTimersByTimeAsync(500);
     audio.say(say("s3", "ack.nice", { interrupt: true }));
-    // s1 ends where it stands, at 0.5 s, heard at 545 ms.
-    expect(lines(sent)).toEqual(["s1 started 55", "s1 ended 525"]);
+    // s1 ends where it stands, at 0.5 s, heard at 505 ms.
+    expect(lines(sent)).toEqual(["s1 started 15", "s1 ended 485"]);
     await vi.advanceTimersByTimeAsync(0);
     expect(
       played()
@@ -219,12 +250,12 @@ describe("say", () => {
     expect(played()[3]?.when).toBeCloseTo(0.53, 9);
     await vi.advanceTimersByTimeAsync(5000);
     expect(lines(sent)).toEqual([
-      "s1 started 55",
-      "s1 ended 525",
-      "s3 started 555",
-      "s3 ended 1405",
-      "s2 started 1435",
-      "s2 ended 2685",
+      "s1 started 15",
+      "s1 ended 485",
+      "s3 started 515",
+      "s3 ended 1365",
+      "s2 started 1395",
+      "s2 ended 2645",
     ]);
   });
 
@@ -301,7 +332,7 @@ describe("cues without a say", () => {
     expect(sent).toEqual([]);
     expect(events).toContainEqual([
       "cue_play",
-      { cue: "consent.recording_notice", ms_to_start: 75 },
+      { cue: "consent.recording_notice", ms_to_start: 35 },
     ]);
   });
 
@@ -353,7 +384,7 @@ describe("the playback bus", () => {
     await vi.advanceTimersByTimeAsync(100);
     audio.dispose();
     await vi.advanceTimersByTimeAsync(5000);
-    expect(lines(sent)).toEqual(["s1 started 55"]);
+    expect(lines(sent)).toEqual(["s1 started 15"]);
     expect(played()[0]?.stopped).toBe(true);
     expect(ctx.state).toBe("closed");
     expect(audio.analyser).toBeNull();

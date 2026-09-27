@@ -27,4 +27,11 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
 - `RendererView.palette`: the prompt pack's `tile_palette`, empty until the pack loads,
   with a view change when it arrives, for the tile's colour before the first `tile`.
 
+### Fixed
+
+- `at_ms` of `audio_state` `started` and `ended` is the audio's context time mapped
+  through `getOutputTimestamp()` alone, which already lands on the audible instant;
+  `outputLatency`, or `baseLatency` where that is 0, is added only where the browser
+  has no `getOutputTimestamp()`. Both events no longer read one output latency late.
+
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main
