@@ -11,7 +11,7 @@ import { FakeSocket } from "../transport/fakes";
 import { begin, sessions, setup, teardown, until } from "./harness";
 
 // The fake-server replay of spec/05-sdk-contract.md 5.16 through the whole session: each
-// sessions/*.jsonl of @zakadi/protocol@0.1.0 plays its server side against a session in
+// sessions/*.jsonl of @zakadi/protocol@0.2.0 plays its server side against a session in
 // the default UI mode, from its token, with the inline engine. The session's own
 // messages come from the session: audio_state from the pack's playback, the user's
 // cancel from the renderer's cancel control. It must end in the transcript's terminal
