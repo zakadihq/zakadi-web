@@ -173,6 +173,7 @@ export function fakeBridge(view: RendererView = viewOf("consent")): Fake {
       previewStream: spies.previewStream,
       onUi: sub(subs.ui),
       onTile: sub(subs.tile) as RendererBridge["onTile"],
+      palette: () => (fake.view.palette ?? []).map((c): Hsl => [...c]),
       onSay: sub(subs.say),
       onFeedback: sub(subs.feedback) as RendererBridge["onFeedback"],
       press: spies.press,

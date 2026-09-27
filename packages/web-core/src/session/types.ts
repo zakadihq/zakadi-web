@@ -157,6 +157,12 @@ export interface HeadlessBridge {
   onUi(h: (s: UiState) => void): () => void;
   /** Paint within one frame; `hsl` is the pack's palette entry for `symbol`. */
   onTile(h: (m: TileMsg, hsl: [number, number, number]) => void): () => void;
+  /**
+   * A copy of the pack manifest's `tile_palette`, `[h, s, l]` per `tile` symbol, empty
+   * until the pack loads: before the first `tile` the host paints the tile a neutral
+   * grey at its luminance (6.4.3, G4, D112).
+   */
+  palette(): readonly [number, number, number][];
   /** Captions; the SDK still plays the audio and sends `audio_state`. */
   onSay(h: (m: SayMsg) => void): () => void;
   onFeedback(h: (m: FeedbackMsg) => void): () => void;

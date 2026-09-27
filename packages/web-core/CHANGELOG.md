@@ -26,6 +26,9 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
   hosts that serve them from their own origin.
 - `RendererView.palette`: the prompt pack's `tile_palette`, empty until the pack loads,
   with a view change when it arrives, for the tile's colour before the first `tile`.
+- `HeadlessBridge.palette()`: a copy of the prompt pack's `tile_palette`, empty until
+  the pack loads, so that a headless host paints the tile a neutral grey at the
+  palette's luminance before the first `tile`.
 
 ### Fixed
 
