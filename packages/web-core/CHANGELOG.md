@@ -36,5 +36,8 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
   through `getOutputTimestamp()` alone, which already lands on the audible instant;
   `outputLatency`, or `baseLatency` where that is 0, is added only where the browser
   has no `getOutputTimestamp()`. Both events no longer read one output latency late.
+- `bye` is the transport's last message: a server `ping` that arrives between the `bye`
+  and `end` gets no `pong`, and a `ready` that arrives after a `bye` sent before it is
+  ignored, with no probe and no `probe_done`.
 
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main
