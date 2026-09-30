@@ -652,6 +652,60 @@ describe("stats, pongs, pings, audio_batch, attest, bye and the media limit", ()
     expect(media.calls.at(-1)).toEqual(["stop"]);
   });
 
+  it("answers no ping once its bye is queued and sends nothing after the bye (1.4 bye, D129)", async () => {
+    const { sock, t, events } = await streaming({}, 1500);
+    const ping = (id: string) => ({
+      t: "ping",
+      id,
+      server_ms: 9000,
+      rtt_ms: 190,
+      rx_kbps: 400,
+    });
+    t.send({ t: "bye", reason: "user_cancel" });
+    // While the final attest is under way, then after the bye went out.
+    sock().receive(ping("p8"));
+    await vi.advanceTimersByTimeAsync(10);
+    const n = sock().sent.length;
+    expect(kinds(sock().sent).slice(-2)).toEqual(["attest", "bye"]);
+    sock().receive(ping("p9"));
+    await vi.advanceTimersByTimeAsync(3000);
+    const end = {
+      t: "end",
+      outcome: "aborted",
+      reason: "user_cancel",
+      retry: false,
+    } as const;
+    sock().receive(end);
+    sock().serverClose(4010);
+    expect(sock().sent).toHaveLength(n);
+    expect(sock().texts("pong")).toEqual([]);
+    // Server messages still reach the session.
+    expect(events.slice(-2)).toEqual([
+      { k: "server", msg: end },
+      { k: "closed", code: 4010, reason: "" },
+    ]);
+  });
+
+  it("ignores a ready that arrives after a bye sent before it: no probe, no probe_done (1.4 bye, D129)", async () => {
+    const { sock, t, media, events } = start();
+    sock().open();
+    t.send({ t: "bye", reason: "user_cancel" });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(kinds(sock().sent)).toEqual(["hello", "camera_meta", "bye"]);
+    sock().receive(READY);
+    sock().receive({
+      t: "probe_result",
+      goodput_kbps: 640,
+      rtt_ms: 190,
+      start_rung: 2,
+    });
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(kinds(sock().sent)).toEqual(["hello", "camera_meta", "bye"]);
+    expect(media.calls).toEqual([]);
+    // The session still receives it.
+    expect(events).toContainEqual({ k: "server", msg: READY });
+  });
+
   it("attests once more after end while the socket is open", async () => {
     const { sock, media, events } = await streaming({}, 1500);
     sock().receive({

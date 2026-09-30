@@ -117,7 +117,7 @@ export function connect(o: ConnectOptions): Transport {
   let desc: MediaConfig | undefined;
   let streaming = false;
   let stopped = false; // media.stop() called
-  let byeing = false; // bye queued behind the final attest
+  let byeing = false; // bye queued behind the final attest: the last message (1.4)
   let ended = false; // `end` received
   let sent = 0; // the rung of the media on the wire
   let ar = 0; // the rung and decimation applied to media
@@ -390,7 +390,8 @@ export function connect(o: ConnectOptions): Transport {
     if (FORWARD.test(m.t)) emit({ k: "server", msg: m as SessionMsg });
     switch (m.t) {
       case "ready": {
-        if (ready) break;
+        // A ready after the client's bye, its last message, is ignored (1.4, D129).
+        if (ready || byeing) break;
         clearTimeout(readyTimer);
         ready = m;
         loop = new Loop(m.ladder, best);
@@ -425,6 +426,8 @@ export function connect(o: ConnectOptions): Transport {
           begin(startRung(ready.ladder, m.goodput_kbps, m.start_rung, best));
         break;
       case "ping":
+        // Answered up to the bye and never after it (1.1, 1.4, D129).
+        if (byeing) break;
         text({ t: "pong", re: m.id, at_ms: at() });
         if (m.rtt_ms != null) {
           loop?.rtt(m.rtt_ms, n);

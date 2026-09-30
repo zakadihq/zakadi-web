@@ -62,6 +62,16 @@ const UPLINK: Record<string, [number, number][]> = {
   "floor-breached": [[600, 8000]],
 };
 
+/**
+ * A server ping halfway between the recorded client bye and end, a window in which no
+ * transcript has a server line: bye is the client's last message, so the ping goes
+ * unanswered (spec/01-protocol.md 1.4 bye, D129).
+ */
+const AFTER_BYE: Record<string, number> = {
+  "floor-breached": 5655,
+  "user-cancel": 8155,
+};
+
 const fromSession = (m: ClientMsg) =>
   m.t === "audio_state" ||
   m.t === "ui_event" ||
@@ -106,6 +116,19 @@ function run(tr: Transcript) {
   sock.open();
   for (const [at, rate] of UPLINK[tr.meta.name] ?? [])
     setTimeout(() => (sock.uplink = rate), at);
+  const late = AFTER_BYE[tr.meta.name];
+  if (late !== undefined)
+    setTimeout(
+      () =>
+        sock.receive({
+          t: "ping",
+          id: "p2",
+          server_ms: late,
+          rtt_ms: 190,
+          rx_kbps: 0,
+        }),
+      late,
+    );
   // The session's messages handed over before the client's bye: the ones it sends.
   const handed: ClientMsg[] = [];
   for (const l of tr.lines) {
@@ -135,6 +158,7 @@ function run(tr: Transcript) {
     s2c,
     handed,
     boosts,
+    late,
     end: tr.lines.at(-1)!.t_ms,
   };
 }
@@ -215,7 +239,8 @@ describe.each(sessions)("replaying $meta.name", (tr) => {
     expect(cm).toHaveLength(1);
     if (firstMedia >= 0) expect(cm[0]).toBeLessThan(firstMedia);
 
-    // Each ping answered at once, in the transcript's order.
+    // Each recorded ping answered at once, in the transcript's order, and the one after
+    // the client's bye not at all.
     const pongs = texts.filter((s) => s.msg!.t === "pong");
     expect(
       pongs.map((s) => [s.at - r.t0, (s.msg as ClientPongMsg).re]),
@@ -255,12 +280,18 @@ describe.each(sessions)("replaying $meta.name", (tr) => {
       r.t0,
       () => false,
     );
-    // The final attest immediately before bye.
+    // The final attest immediately before bye, and nothing after the bye, not even a
+    // pong for the server ping between it and end (1.4 bye, D129).
     const bye = texts.findIndex((s) => s.msg!.t === "bye");
-    if (bye >= 0) expect(texts[bye - 1]!.msg!.t).toBe("attest");
     expect(texts.filter((s) => s.msg!.t === "bye")).toHaveLength(
       r.c2s.filter((m) => m.t === "bye").length,
     );
+    if (bye >= 0) {
+      expect(texts[bye - 1]!.msg!.t).toBe("attest");
+      expect(sent.at(-1)).toBe(texts[bye]);
+    }
+    if (r.late !== undefined)
+      expect(texts[bye]!.at - r.t0).toBeLessThan(r.late);
     // At least as many stats and attest messages as the transcript has.
     for (const t of ["stats", "attest"])
       expect(
