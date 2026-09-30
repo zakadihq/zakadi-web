@@ -17,10 +17,39 @@ import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { references } from "./imports.mjs";
+import { ImportType, init, parse } from "es-module-lexer";
 
 const ROOT = join(import.meta.dirname, "../../..");
 let dir;
+await init;
+
+// The text around an import.meta that makes it new URL(<string>, import.meta.url), the
+// way the engine worker and the capture worklet are found (6.1.4).
+const URL_BEFORE =
+  /\bnew\s+URL\s*\(\s*(?:"((?:[^"\\\r\n]|\\.)*)"|'((?:[^'\\\r\n]|\\.)*)')\s*,\s*$/;
+const URL_AFTER = /^\s*\.\s*url\s*\)/;
+
+/**
+ * The module references of `source` as es-module-lexer reads it, past comments,
+ * strings, templates and regular expressions: `{ kind, specifier }`, where `kind` is
+ * `import` for a static import, a re-export or an import(), and `url` for a
+ * new URL(<string>, import.meta.url). An import() of anything but a string throws,
+ * since no file can be checked for it, as does source the parser cannot read.
+ */
+function references(source) {
+  const [imports] = parse(source);
+  return imports.flatMap(({ t, n, d, s, e }) => {
+    if (t === ImportType.ImportMeta) {
+      const url = URL_BEFORE.exec(source.slice(0, s));
+      return url && URL_AFTER.test(source.slice(e))
+        ? [{ kind: "url", specifier: url[1] ?? url[2] }]
+        : [];
+    }
+    if (n === undefined)
+      throw new SyntaxError(`an import() of an expression at offset ${d}`);
+    return [{ kind: "import", specifier: n }];
+  });
+}
 
 before(() => {
   dir = mkdtempSync(join(tmpdir(), "zakadi-field-build-"));
@@ -162,6 +191,10 @@ test("the scan reads every form of import and skips comments, strings, templates
     () => references("import(name);"),
     /an import\(\) of an expression/,
   );
-  assert.throws(() => references("const s = 'open;"), /an unterminated string/);
-  assert.throws(() => references("f(() => {);"), /closed by/);
+  assert.throws(() => references("const s = 'open;"), {
+    message: "Parse error @:1:17",
+  });
+  assert.throws(() => references("f(() => {);"), {
+    message: "Parse error @:1:1",
+  });
 });
