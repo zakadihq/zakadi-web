@@ -16,6 +16,8 @@ npm test                        # Vitest in each package
 npm run build && npm run size   # the library builds and the gzip budgets
 ```
 
+`npm ci` installs the git hooks through the postinstall script of the `lefthook` devDependency. The `allowScripts` field of `package.json` approves that script by name, which is what lets npm 12 run it (npm 12 skips every install script the field does not approve), and denies the install script of `fsevents` on macOS, whose package ships its binary prebuilt, so `npm ci --strict-allow-scripts` installs the hooks too. In a clone installed without scripts (`npm ci --ignore-scripts`), or with `CI` set, where lefthook's postinstall does nothing, `npx lefthook install` installs the hooks.
+
 Each package declares `typescript` 7 for its type check (`tsc`) and `@typescript/typescript6` for its declarations (`tsc6`). The root `typescript` is an npm alias of `@typescript/typescript6`, because typescript-eslint needs the TypeScript 6 API.
 
 ## Licence
