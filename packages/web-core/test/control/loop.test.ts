@@ -165,6 +165,54 @@ describe("tick()", () => {
     expect(rttStable(xs, 3000)).toBe(false);
     expect(rttStable(xs, 9000)).toBe(false);
   });
+
+  it("needs three RTT samples in the last 5 s (D132)", () => {
+    const xs = [0, 1000, 2000, 6500].map((at) => ({ at, ms: 100 }));
+    expect(rttStable(xs.slice(0, 1), 0)).toBe(false);
+    expect(rttStable(xs.slice(0, 2), 1000)).toBe(false);
+    expect(rttStable(xs.slice(0, 3), 2000)).toBe(true);
+    // Four in the session, two of them in the last 5 s.
+    expect(rttStable(xs, 6500)).toBe(false);
+  });
+
+  it("breaches the floor on the 15th tick after the step down to rung 4 (D130)", () => {
+    let s = { ...base(), rung: 2 };
+    const step = (now: number) => {
+      const r = tick(s, {
+        now,
+        queuedBytes: 1e6,
+        drainedBytes1s: 0,
+        encodedKbps2s: 0,
+        ladder,
+      });
+      s = r.s;
+      return r.out;
+    };
+    expect(step(200)).toMatchObject({ kind: "rung", to: 4 });
+    for (let k = 1; k < 15; k++)
+      expect(step(200 + k * 200)).toEqual({ kind: "hold" });
+    expect(step(3200)).toEqual({ kind: "floor_breached" });
+  });
+});
+
+describe("Loop.set()", () => {
+  it("clears the decimation on a server upshift and keeps it on a downshift (D132)", () => {
+    const loop = new Loop(ladder);
+    loop.begin(2, 0, true);
+    loop.s.decimation = 1;
+    loop.set(3, 1000);
+    expect(loop.s).toMatchObject({
+      rung: 3,
+      decimation: 1,
+      overrideUntil: 4000,
+    });
+    loop.set(1, 1500);
+    expect(loop.s).toMatchObject({
+      rung: 1,
+      decimation: 0,
+      overrideUntil: 4500,
+    });
+  });
 });
 
 describe("startRung()", () => {

@@ -39,5 +39,9 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
 - `bye` is the transport's last message: a server `ping` that arrives between the `bye`
   and `end` gets no `pong`, and a `ready` that arrives after a `bye` sent before it is
   ignored, with no probe and no `probe_done`.
+- The control loop: `bye` `floor_breached` comes on the 15th tick after the step down to
+  rung 4, 3 s after it, the tick of the step no longer counting toward the floor; an
+  upshift waits for three RTT samples in the last 5 s, no longer one; and a server
+  `set_rung` to a better rung clears the decimation, which it used to keep.
 
 [Unreleased]: https://github.com/zakadihq/zakadi-web/commits/main
