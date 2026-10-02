@@ -9,7 +9,7 @@ All notable changes to `@zakadi/web-core` are documented here. The format follow
 ### Added
 
 - The package: an ES module entry with its type declarations, and `@zakadi/protocol`
-  0.2.0, pinned exactly, as its one dependency.
+  0.2.1, pinned exactly, as its one dependency.
 - `createZakadiSession()`, `ZakadiError` and `LIVENESS_EVENT_TYPES`: the session API of
   the web SDK, with its events, the headless bridge and the renderer bridge that
   `<zakadi-call>` of `@zakadi/ui` binds to.

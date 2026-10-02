@@ -34,7 +34,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@zakadi/protocol": "0.2.0"
+    "@zakadi/protocol": "0.2.1"
   },
   "devDependencies": {
     "@typescript/typescript6": "^6.0.2",
