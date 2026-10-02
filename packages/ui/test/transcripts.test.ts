@@ -8,7 +8,7 @@ import { bound, viewOf, visible } from "./fakes";
 // spec/01-protocol.md 1.5: the client MUST render any `ui` state from scratch, the
 // message being idempotent, not a delta; spec/05-sdk-contract.md 5.16 asks for every
 // `ui` state of the transcript set. Each distinct state of the `sessions/*.jsonl` of
-// @zakadi/protocol@0.2.0 renders in a fresh element exactly as it does after all the
+// @zakadi/protocol@0.2.1 renders in a fresh element exactly as it does after all the
 // others, and shows what it says.
 afterEach(() => {
   vi.useRealTimers();
