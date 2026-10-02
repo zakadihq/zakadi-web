@@ -69,14 +69,21 @@ function heldFor<T extends { at: number }>(
   );
 }
 
-/** The latest RTT sample is within 20 percent of the median of the last 5 s. */
+/**
+ * The latest RTT sample is within 20 percent of the median of the last 5 s, which
+ * holds three samples or more (D132).
+ */
 export function rttStable(
   xs: { at: number; ms: number }[],
   now: number,
 ): boolean {
   const recent = xs.filter((x) => now - x.at <= 5000);
   const m = median(recent.map((x) => x.ms));
-  return m !== null && Math.abs(recent[recent.length - 1]!.ms - m) <= 0.2 * m;
+  return (
+    recent.length >= 3 &&
+    m !== null &&
+    Math.abs(recent[recent.length - 1]!.ms - m) <= 0.2 * m
+  );
 }
 
 /** One 200 ms tick of 5.6 steps 1 to 4 and 6; step 5 (`stats`) is the caller's. */
@@ -151,9 +158,10 @@ export function tick(
       }
     }
   }
-  // Step 6: 15 ticks (3 s) above 1500 ms at the floor rung.
+  // Step 6: 15 ticks (3 s) above 1500 ms that begin at the floor rung; the tick that
+  // steps down to it measured the old rung's backlog and does not count (D130).
   n.floorTicks =
-    n.rung === s.floorRung && queueMs > 1500 ? s.floorTicks + 1 : 0;
+    s.rung === s.floorRung && queueMs > 1500 ? s.floorTicks + 1 : 0;
   if (n.floorTicks >= 15) out = { kind: "floor_breached" };
   return { s: n, out, queueMs };
 }
@@ -252,14 +260,15 @@ export class Loop {
     this.s.lastKeyframeAt = now;
   }
 
-  /** A server `set_rung`: overrides the loop for 3 s (5.6); ignored on mediarecorder. */
+  /**
+   * A server `set_rung`: overrides the loop for 3 s, an upshift clearing the decimation
+   * (5.6, D132); ignored on mediarecorder.
+   */
   set(rung: number, now: number): void {
-    if (this.s.canChange)
-      Object.assign(this.s, {
-        rung,
-        dwellStart: now,
-        overrideUntil: now + 3000,
-      });
+    const s = this.s;
+    if (!s.canChange) return;
+    if (rung < s.rung) s.decimation = 0;
+    Object.assign(s, { rung, dwellStart: now, overrideUntil: now + 3000 });
   }
 
   /** One tick with the socket's queued bytes now. */
