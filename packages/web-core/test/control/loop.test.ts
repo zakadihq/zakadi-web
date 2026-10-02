@@ -1,13 +1,46 @@
 import type { ReadyMsg } from "@zakadi/protocol";
-import { loadVectors } from "@zakadi/protocol/vectors";
+import { loadVectors, vectorsDir } from "@zakadi/protocol/vectors";
 import { describe, expect, it } from "vitest";
-import { Loop, rttStable, startRung, tick } from "../../src/control/loop";
+import {
+  Loop,
+  rttStable,
+  startRung,
+  tick,
+  type Rung,
+  type TickOut,
+} from "../../src/control/loop";
 
-// The control-loop simulation of spec/05-sdk-contract.md 5.16: until vectors/loop/ ships
-// (D95), traces/*.json are this SDK's fixtures, derived by hand from 5.6. Each trace
-// gives, per 200 ms tick, the bytes handed to the socket and its queued bytes, plus RTT,
-// receive-rate, keyframe, IDR and set_rung events; tick() must yield its rung sequence,
-// its floor breach and the queue_ms its stats report.
+// The control-loop simulation of spec/05-sdk-contract.md 5.16 and spec/06-web-sdk.md
+// 6.11. Each vectors/loop/*.json of @zakadi/protocol@0.2.1 (01 1.12) goes through tick()
+// and the loop's event methods and must yield its rung and decimation changes and its
+// floor tick. traces/*.json, this SDK's own fixtures from before those shipped (D95),
+// cover the caller, which the vectors leave out: each gives, per 200 ms tick, the bytes
+// handed to the socket and its queued bytes, plus RTT, receive-rate, keyframe, IDR and
+// set_rung events, and Loop must yield, from the drainedBytes1s and encoded rate it
+// computes, the trace's rung sequence, its floor breach and the queue_ms its stats report.
+
+/** A vectors/loop/*.json trace (schemas/v1/loop-trace.schema.json of the package). */
+interface LoopVector {
+  name: string;
+  profile: "webcodecs" | "native" | "mediarecorder";
+  ladder: Rung[];
+  start_rung: number;
+  ticks: {
+    t_ms: number;
+    queued_bytes: number;
+    drained_bytes_1s: number;
+    encoded_kbps_2s: number;
+  }[];
+  pings: { t_ms: number; rtt_ms: number | null; rx_kbps: number | null }[];
+  set_rung: { t_ms: number; rung: number }[];
+  keyframe_requests: { t_ms: number }[];
+  idrs: { t_ms: number }[];
+  expect: {
+    rungs: { t_ms: number; rung: number; reason: string }[];
+    decimation: { t_ms: number; decimation: number }[];
+    floor_tick: number | null;
+  };
+}
 
 interface Trace {
   name: string;
@@ -35,8 +68,8 @@ const fs = (
   globalThis as unknown as {
     process: {
       getBuiltinModule(id: "node:fs"): {
-        readdirSync(p: URL): string[];
-        readFileSync(p: URL, enc: "utf8"): string;
+        readdirSync(p: string | URL): string[];
+        readFileSync(p: string | URL, enc: "utf8"): string;
       };
     };
   }
@@ -47,6 +80,12 @@ const traces: Trace[] = fs
   .filter((f) => f.endsWith(".json"))
   .sort()
   .map((f) => JSON.parse(fs.readFileSync(new URL(f, dir), "utf8")));
+const vdir = `${vectorsDir()}/loop`;
+const vectors: LoopVector[] = fs
+  .readdirSync(vdir)
+  .filter((f) => f.endsWith(".json"))
+  .sort()
+  .map((f) => JSON.parse(fs.readFileSync(`${vdir}/${f}`, "utf8")));
 
 // The ladder of the pinned protocol's `ready` (01 1.5).
 const ready = loadVectors()
@@ -109,7 +148,93 @@ function replay(tr: Trace) {
   return { rungs, floor, stats };
 }
 
-describe("loop traces (5.6)", () => {
+/**
+ * A vector's inputs in t_ms order, any other input before a tick at the same t_ms,
+ * until the floor breaches or the ticks end (01 1.12). A native trace runs as webcodecs
+ * does: only mediarecorder's rung cannot change.
+ */
+function replayVector(v: LoopVector): LoopVector["expect"] {
+  const loop = new Loop(v.ladder);
+  loop.begin(v.start_rung, 0, v.profile !== "mediarecorder");
+  const got: LoopVector["expect"] = {
+    rungs: [],
+    decimation: [],
+    floor_tick: null,
+  };
+  const inputs: { at: number; tick: boolean; run(): TickOut | void }[] = [
+    ...v.pings.map((p) => ({
+      at: p.t_ms,
+      tick: false,
+      run() {
+        if (p.rtt_ms !== null) loop.rtt(p.rtt_ms, p.t_ms);
+        if (p.rx_kbps !== null) loop.rx(p.rx_kbps, p.t_ms);
+      },
+    })),
+    ...v.keyframe_requests.map((k) => ({
+      at: k.t_ms,
+      tick: false,
+      run: () => loop.keyframe(k.t_ms),
+    })),
+    ...v.idrs.map((k) => ({
+      at: k.t_ms,
+      tick: false,
+      run: () => loop.idr(k.t_ms),
+    })),
+    ...v.set_rung.map((m) => ({
+      at: m.t_ms,
+      tick: false,
+      run() {
+        // Answered with `rung`, on mediarecorder the unchanged one (5.6, D143).
+        loop.set(m.rung, m.t_ms);
+        got.rungs.push({ t_ms: m.t_ms, rung: loop.s.rung, reason: "server" });
+      },
+    })),
+    ...v.ticks.map((k) => ({
+      at: k.t_ms,
+      tick: true,
+      run() {
+        const r = tick(loop.s, {
+          now: k.t_ms,
+          queuedBytes: k.queued_bytes,
+          drainedBytes1s: k.drained_bytes_1s,
+          encodedKbps2s: k.encoded_kbps_2s,
+          ladder: v.ladder,
+        });
+        loop.s = r.s;
+        return r.out;
+      },
+    })),
+  ];
+  inputs.sort((a, b) => a.at - b.at || Number(a.tick) - Number(b.tick));
+  for (const input of inputs) {
+    const dec = loop.s.decimation;
+    const out = input.run();
+    if (loop.s.decimation !== dec)
+      got.decimation.push({ t_ms: input.at, decimation: loop.s.decimation });
+    if (out?.kind === "rung")
+      got.rungs.push({ t_ms: input.at, rung: out.to, reason: out.reason });
+    if (out?.kind === "floor_breached") {
+      got.floor_tick = input.at;
+      break;
+    }
+  }
+  return got;
+}
+
+describe("vectors/loop of @zakadi/protocol (5.6, 5.16)", () => {
+  it("are the ten traces of 0.2.1", () => {
+    expect(vectors).toHaveLength(10);
+  });
+
+  it.each(vectors)(
+    "$name yields its rung and decimation changes and floor tick",
+    (v) => {
+      expect(replayVector(v)).toEqual(v.expect);
+    },
+  );
+});
+
+describe("the SDK's own traces (5.6, D95)", () => {
   it("cover steps 1 to 6 on both profiles", () => {
     for (const profile of ["webcodecs", "mediarecorder"]) {
       const steps = new Set(
