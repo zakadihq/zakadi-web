@@ -42,10 +42,10 @@
   "devDependencies": {
     "@typescript/typescript6": "^6.0.2",
     "@zakadi/protocol": "0.2.1",
-    "happy-dom": "^20.14.5",
+    "happy-dom": "^20.14.6",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
   },
   "peerDependencies": {
     "@zakadi/web-core": "0.0.0"
